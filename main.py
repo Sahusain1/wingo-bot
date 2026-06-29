@@ -8,7 +8,7 @@ TOKEN = '8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo'
 CHANNEL_ID = '@WINGO_1_MINUTES_24' 
 
 # ⚠️ LIVE PERIOD NUMBER YAHAN UPDATE KAREIN (Jo abhi chalne wala ho)
-live_period = 20260629100010551  
+live_period = 20260629100010610  
 
 async def send_predictions():
     global live_period
