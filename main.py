@@ -17,7 +17,7 @@ def run_web_server():
     app.run(host='0.0.0.0', port=port)
 
 # 2. Telegram Bot Setup
-# Aap apna token direct yahan "YOUR_TELEGRAM_BOT_TOKEN_HERE" ki jagah daal sakte hain
+# Aap apna token direct yahan "8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo" ki jagah daal sakte hain
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
 bot = telebot.TeleBot(BOT_TOKEN)
 
