@@ -18,7 +18,7 @@ def run_web_server():
 
 # 2. Telegram Bot Setup
 # Aap apna token direct yahan "8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo" ki jagah daal sakte hain
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
+BOT_TOKEN = os.environ.get("8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
 bot = telebot.TeleBot(BOT_TOKEN)
 
 def get_live_prediction():
