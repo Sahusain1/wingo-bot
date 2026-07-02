@@ -4,22 +4,27 @@ import pytz
 import telebot
 import time
 import random
+import threading
 from flask import Flask
 from threading import Thread
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Global Control variables (Sabse pehle define kar diye taaki Flask me error na aaye)
-GLOBAL_MODE = "AUTOMATIC"  # Default Mode: AUTOMATIC ya MANUAL
-external_chats = {}
-manual_result_store = {}
+# Thread safety ke liye locks aur global dictionary
+state_lock = threading.Lock()
+engine_state = {
+    "GLOBAL_MODE": "AUTOMATIC",  # Default State: AUTOMATIC ya MANUAL
+    "external_chats": {},
+    "manual_result_store": {}
+}
 
 # 1. Flask Web Server Setup
 app = Flask('')
 
 @app.route('/')
 def home():
-    global GLOBAL_MODE
-    return f"HYBRID CONTROL ENGINE IS RUNNING! MODE: {GLOBAL_MODE}"
+    with state_lock:
+        current_mode = engine_state["GLOBAL_MODE"]
+    return f"HYBRID CONTROL ENGINE IS RUNNING! MODE: {current_mode}"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -54,9 +59,11 @@ def check_force_join(user_id):
 
 # 🎛️ MODE PANEL KEYBOARD FOR ADMIN
 def get_admin_panel_keyboard():
-    global GLOBAL_MODE
+    with state_lock:
+        current_mode = engine_state["GLOBAL_MODE"]
+        
     markup = InlineKeyboardMarkup()
-    status_text = "🤖 AUTO ACTIVE" if GLOBAL_MODE == "AUTOMATIC" else "✍️ MANUAL ACTIVE"
+    status_text = "🤖 AUTO ACTIVE" if current_mode == "AUTOMATIC" else "✍️ MANUAL ACTIVE"
     
     btn_auto = InlineKeyboardButton("🤖 Set AUTOMATIC Mode", callback_data="set_auto")
     btn_manual = InlineKeyboardButton("✍️ Set MANUAL Mode", callback_data="set_manual")
@@ -68,7 +75,6 @@ def get_admin_panel_keyboard():
 
 # ⏱️ 40-SECOND PRECISION BROADCAST LOOP
 def precision_prediction_loop():
-    global GLOBAL_MODE
     last_processed_period = ""
     
     while True:
@@ -87,18 +93,22 @@ def precision_prediction_loop():
                     base_math = ((last_four * 9) + 4) % 10
                     predicted_base_size = "BIG" if base_math >= 5 else "SMALL"
                     
-                    manual_number = manual_result_store.get(pichla_period, None)
+                    # Safe thread reads
+                    with state_lock:
+                        current_mode = engine_state["GLOBAL_MODE"]
+                        manual_number = engine_state["manual_result_store"].get(pichla_period, None)
                     
-                    # MODE ROUTING LOGIC
-                    if GLOBAL_MODE == "MANUAL" and manual_number is not None:
+                    # MODE ROUTING LOGIC WITH FALLBACK
+                    if current_mode == "MANUAL" and manual_number is not None:
                         num = int(manual_number)
+                        # Violet Override Triggers
                         if num == 0 or num == 5:
                             next_prediction = "BIG" if num == 0 else "SMALL"
                         else:
                             last_size = "BIG" if num >= 5 else "SMALL"
                             next_prediction = "SMALL" if last_size == "BIG" else "BIG"
                     else:
-                        # AUTOMATIC MODE FALLBACK
+                        # AUTOMATIC MODE FALLBACK (Run if Auto is set OR if Manual has no input number)
                         group_block = (last_four // 3) % 2
                         time_weight = (last_four + now_seconds) % 4
                         if group_block == 1 and time_weight > 1:
@@ -131,17 +141,22 @@ def precision_prediction_loop():
                     except Exception as e:
                         print(f"Broadcast error: {e}")
                     
-                    for ext_chat_id, data in list(external_chats.items()):
+                    with state_lock:
+                        chats_to_send = list(engine_state["external_chats"].items())
+                        
+                    for ext_chat_id, data in chats_to_send:
                         if data.get("active"):
                             try:
                                 bot.send_message(ext_chat_id, prediction_msg, parse_mode="Markdown", disable_web_page_preview=True)
                             except:
-                                external_chats.pop(ext_chat_id, None)
+                                with state_lock:
+                                    engine_state["external_chats"].pop(ext_chat_id, None)
                                 
                     last_processed_period = period
                     
-                    if len(manual_result_store) > 15:
-                        manual_result_store.clear()
+                    with state_lock:
+                        if len(engine_state["manual_result_store"]) > 15:
+                            engine_state["manual_result_store"].clear()
             
             time.sleep(1)
             
@@ -152,19 +167,22 @@ def precision_prediction_loop():
 # 🛑 TELEGRAM CALL INTERACTION BLOCK
 @bot.callback_query_handler(func=lambda call: True)
 def handle_control_callbacks(call):
-    global GLOBAL_MODE
     if call.from_user.id != ADMIN_ID:
         bot.answer_callback_query(call.id, "❌ Aap admin nahi ho!", show_alert=True)
         return
         
     if call.data == "set_auto":
-        GLOBAL_MODE = "AUTOMATIC"
+        with state_lock:
+            engine_state["GLOBAL_MODE"] = "AUTOMATIC"
         bot.answer_callback_query(call.id, "🤖 Automatic Mode Set Ho Gaya!", show_alert=False)
     elif call.data == "set_manual":
-        GLOBAL_MODE = "MANUAL"
+        with state_lock:
+            engine_state["GLOBAL_MODE"] = "MANUAL"
         bot.answer_callback_query(call.id, "✍️ Manual Mode Set Ho Gaya!", show_alert=False)
     elif call.data == "status_info":
-        bot.answer_callback_query(call.id, f"Current active structure: {GLOBAL_MODE}", show_alert=True)
+        with state_lock:
+            current_mode = engine_state["GLOBAL_MODE"]
+        bot.answer_callback_query(call.id, f"Current active structure: {current_mode}", show_alert=True)
         return
         
     try:
@@ -176,7 +194,10 @@ def handle_control_callbacks(call):
 def send_admin_control_panel(message):
     if message.from_user.id != ADMIN_ID:
         return
-    bot.reply_to(message, "⚙️ *BDG GAME HYBRID CONTROL PANEL*\n\nNiche diye gaye button se direct Automatic ya Manual behavior control karein:", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+    try:
+        bot.reply_to(message, "⚙️ *BDG GAME HYBRID CONTROL PANEL*\n\nNiche diye gaye button se direct Automatic ya Manual behavior control karein:", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+    except Exception as e:
+        print(f"Panel send error: {e}")
 
 @bot.message_handler(commands=['update'])
 def handle_manual_update(message):
@@ -196,7 +217,9 @@ def handle_manual_update(message):
         current_period = get_current_period()
         target_period = str(int(current_period) - 1)
         
-        manual_result_store[target_period] = input_number
+        with state_lock:
+            engine_state["manual_result_store"][target_period] = input_number
+            
         bot.reply_to(message, f"✅ Target Locked!\nPeriod `{target_period}` actual number is `{input_number}`.", parse_mode="Markdown")
     except Exception as e:
         bot.reply_to(message, f"❌ Session processing error: {e}")
@@ -210,7 +233,8 @@ def handle_external_start(message):
     if not check_force_join(user_id):
         bot.reply_to(message, f"❌ Join: {CHANNEL_LINK}")
         return
-    external_chats[chat_id] = {"active": True}
+    with state_lock:
+        engine_state["external_chats"][chat_id] = {"active": True}
     bot.reply_to(message, "🚀 *Wingo Precision Engine Attached!*")
 
 @bot.message_handler(commands=['start'])
