@@ -88,7 +88,8 @@ def get_current_period():
 
 
 # 🤖 1-MINUTE BROADCAST LOOP ENGINE
-def 1_min_broadcast_loop():
+def wingo_1minute_broadcast_loop():
+
     print("1-Minute Sticker Broadcasting Engine Booted...")
     last_processed_period = ""
     
@@ -179,8 +180,9 @@ def start_pred(message):
     active_chats[chat_id]["active"] = True
     bot.reply_to(message, "🚀 *1-Minute Engine Active! Har 60s me automated updates aur Win/Lose stickers aane lagenge.*", parse_mode="Markdown")
 
-if __name__ == "__main__":
+ if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
-    Thread(target=1_min_broadcast_loop, daemon=True).start()
+    Thread(target=wingo_1minute_broadcast_loop, daemon=True).start()
     bot.infinity_polling()
+
     
