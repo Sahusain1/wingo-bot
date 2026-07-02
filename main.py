@@ -8,11 +8,17 @@ from flask import Flask
 from threading import Thread
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# Global Control variables (Sabse pehle define kar diye taaki Flask me error na aaye)
+GLOBAL_MODE = "AUTOMATIC"  # Default Mode: AUTOMATIC ya MANUAL
+external_chats = {}
+manual_result_store = {}
+
 # 1. Flask Web Server Setup
 app = Flask('')
 
 @app.route('/')
 def home():
+    global GLOBAL_MODE
     return f"HYBRID CONTROL ENGINE IS RUNNING! MODE: {GLOBAL_MODE}"
 
 def run_web_server():
@@ -28,11 +34,6 @@ MY_MAIN_CHANNEL = "@WINGO_1_MINUTES_24"
 BOT_LINK = "https://t.me/Pridictionrobot"   
 CHANNEL_LINK = "https://t.me/WINGO_1_MINUTES_24" 
 ADMIN_ID = 5334460773
-
-# Global Control variables
-GLOBAL_MODE = "AUTOMATIC"  # Default Mode: AUTOMATIC ya MANUAL
-external_chats = {}
-manual_result_store = {}
 
 def get_current_period():
     gmt = pytz.timezone('UTC')
@@ -53,6 +54,7 @@ def check_force_join(user_id):
 
 # 🎛️ MODE PANEL KEYBOARD FOR ADMIN
 def get_admin_panel_keyboard():
+    global GLOBAL_MODE
     markup = InlineKeyboardMarkup()
     status_text = "🤖 AUTO ACTIVE" if GLOBAL_MODE == "AUTOMATIC" else "✍️ MANUAL ACTIVE"
     
@@ -71,11 +73,10 @@ def precision_prediction_loop():
     
     while True:
         try:
-            # Current time check in seconds (IST)
             ist = pytz.timezone('Asia/Kolkata')
             now_seconds = datetime.datetime.now(ist).second
             
-            # 🎯 STRICT 40-SECOND TRIGGER WINDOW (Runs exactly at 20th second of the minute)
+            # EXACT 20th SECOND PAR POST HOGA (40 Sec Pehle)
             if 20 <= now_seconds <= 24:
                 period = get_current_period()
                 
@@ -83,24 +84,21 @@ def precision_prediction_loop():
                     last_four = int(period[-4:])
                     pichla_period = str(int(period) - 1)
                     
-                    # Core base calculations
                     base_math = ((last_four * 9) + 4) % 10
                     predicted_base_size = "BIG" if base_math >= 5 else "SMALL"
                     
-                    # Fetch last round data if available in database
                     manual_number = manual_result_store.get(pichla_period, None)
                     
                     # MODE ROUTING LOGIC
                     if GLOBAL_MODE == "MANUAL" and manual_number is not None:
                         num = int(manual_number)
-                        # Violet Overrides: Inverts trend pattern for strict level safety
                         if num == 0 or num == 5:
                             next_prediction = "BIG" if num == 0 else "SMALL"
                         else:
                             last_size = "BIG" if num >= 5 else "SMALL"
                             next_prediction = "SMALL" if last_size == "BIG" else "BIG"
                     else:
-                        # AUTOMATIC / FALLBACK MODE ENGINE
+                        # AUTOMATIC MODE FALLBACK
                         group_block = (last_four // 3) % 2
                         time_weight = (last_four + now_seconds) % 4
                         if group_block == 1 and time_weight > 1:
@@ -108,7 +106,6 @@ def precision_prediction_loop():
                         else:
                             next_prediction = predicted_base_size
                     
-                    # Number distribution filters
                     if next_prediction == "BIG":
                         available_nums = [5, 6, 7, 8, 9]
                         num1 = base_math if base_math in available_nums else 8
@@ -120,7 +117,6 @@ def precision_prediction_loop():
                         
                     safe_nums_str = f"{num1} or {num2}"
                     
-                    # Output card design
                     prediction_msg = (
                         "🔔 *WINGO 1-MIN PREDICTION* 🔔\n\n"
                         f"🎯 *Period:* `{period}`\n"
@@ -130,13 +126,11 @@ def precision_prediction_loop():
                         f"🤖 [🤖 Bot Link]({BOT_LINK}) | 📢 [📢 Join Channel]({CHANNEL_LINK})"
                     )
                     
-                    # Main Channel Broadcast
                     try:
                         bot.send_message(MY_MAIN_CHANNEL, prediction_msg, parse_mode="Markdown", disable_web_page_preview=True)
                     except Exception as e:
                         print(f"Broadcast error: {e}")
                     
-                    # External Distribution Channels
                     for ext_chat_id, data in list(external_chats.items()):
                         if data.get("active"):
                             try:
@@ -146,11 +140,10 @@ def precision_prediction_loop():
                                 
                     last_processed_period = period
                     
-                    # Memory optimization cycle
                     if len(manual_result_store) > 15:
                         manual_result_store.clear()
             
-            time.sleep(1) # Frequency clock speed checking every second
+            time.sleep(1)
             
         except Exception as e:
             print(f"Loop core issue: {e}")
@@ -228,4 +221,4 @@ if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
     Thread(target=precision_prediction_loop, daemon=True).start()
     bot.infinity_polling()
-                            
+    
