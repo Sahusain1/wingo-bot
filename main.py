@@ -15,7 +15,7 @@ engine_state = {
     "GLOBAL_MODE": "AUTOMATIC",  
     "external_chats": {},
     "manual_result_store": {},
-    "consecutive_misses": 0,       # Track streak leaks for dynamic safety
+    "consecutive_misses": 0,       
     "last_prediction_made": "BIG"
 }
 
@@ -26,8 +26,7 @@ app = Flask('')
 def home():
     with state_lock:
         current_mode = engine_state["GLOBAL_MODE"]
-        misses = engine_state["consecutive_misses"]
-    return f"ANTI-STREAK ENGINE IS LIVE! MODE: {current_mode} | PROTECTION LAYER: {misses}"
+    return f"ANTI-STREAK ENGINE IS LIVE! MODE: {current_mode}"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -37,11 +36,10 @@ def run_web_server():
 BOT_TOKEN = "8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# 📢 TARGET LINKS
-MY_MAIN_CHANNEL = "@WINGO_1_MINUTES_24"       
+# 📢 STRICT SYSTEM CONFIGURATION (LOCKING CHANNELS & OWNER ID)       
+ADMIN_ID = 7795350715
 BOT_LINK = "https://t.me/Pridictionrobot"   
 CHANNEL_LINK = "https://t.me/WINGO_1_MINUTES_24" 
-ADMIN_ID = 5334460773
 
 def get_current_period():
     gmt = pytz.timezone('UTC')
@@ -59,7 +57,7 @@ def get_admin_panel_keyboard():
         
     markup = InlineKeyboardMarkup()
     status_text = "AUTO" if current_mode == "AUTOMATIC" else "MANUAL"
-    layer_text = f"Safety Tier: {misses if misses <= 3 else 'CRITICAL MATCH'}"
+    layer_text = f"Safety Tier: {misses}"
     
     btn_auto = InlineKeyboardButton("🤖 Set AUTOMATIC Mode", callback_data="set_auto")
     btn_manual = InlineKeyboardButton("✍️ Set MANUAL Mode", callback_data="set_manual")
@@ -69,7 +67,7 @@ def get_admin_panel_keyboard():
     markup.row(btn_status)
     return markup
 
-# ⏱️ 40-SECOND PRECISION UNSTABLE TREND CORE LOOP
+# ⏱️ 40-SECOND PRECISION LOOP
 def precision_prediction_loop():
     last_processed_period = ""
     
@@ -78,7 +76,6 @@ def precision_prediction_loop():
             ist = pytz.timezone('Asia/Kolkata')
             now_seconds = datetime.datetime.now(ist).second
             
-            # STRICT 40-SECOND TRIGGER (20th second mark)
             if 20 <= now_seconds <= 24:
                 period = get_current_period()
                 
@@ -86,7 +83,6 @@ def precision_prediction_loop():
                     last_four = int(period[-4:])
                     pichla_period = str(int(period) - 1)
                     
-                    # Mathematical baseline calculation
                     base_math = ((last_four * 9) + 4) % 10
                     predicted_base_size = "BIG" if base_math >= 5 else "SMALL"
                     
@@ -96,35 +92,26 @@ def precision_prediction_loop():
                         miss_streak = engine_state["consecutive_misses"]
                         last_pred = engine_state["last_prediction_made"]
                     
-                    # UNSTABLE VOLATILITY FILTERS (Anti 7-Level Break Engine)
                     if current_mode == "MANUAL" and manual_number is not None:
                         num = int(manual_number)
                         actual_last_size = "BIG" if num >= 5 else "SMALL"
                         
-                        # Verify if previous prediction was a WIN or LOSS to balance streak depth
                         if actual_last_size == last_pred:
-                            # WIN situation: Reset risk multipliers
                             with state_lock:
                                 engine_state["consecutive_misses"] = 0
                             miss_streak = 0
                         else:
-                            # LOSS situation: Advance tracking system
                             with state_lock:
                                 engine_state["consecutive_misses"] += 1
                             miss_streak += 1
                         
-                        # Dynamic Adaptive Execution Routing
                         if miss_streak >= 3:
-                            # If market is extremely unstable, replicate the streak flow (Trend-Following Protection)
                             next_prediction = actual_last_size
                         elif num == 0 or num == 5:
-                            # Strict Inversion control for violet setups
                             next_prediction = "BIG" if num == 0 else "SMALL"
                         else:
-                            # Standard counter-trend baseline execution
                             next_prediction = "SMALL" if actual_last_size == "BIG" else "BIG"
                     else:
-                        # AUTOMATIC BACKUP PATTERN CORRECTION PIPELINE
                         group_block = (last_four // 3) % 2
                         time_weight = (last_four + now_seconds) % 4
                         if group_block == 1 and time_weight > 1:
@@ -132,11 +119,9 @@ def precision_prediction_loop():
                         else:
                             next_prediction = predicted_base_size
                     
-                    # Store current prediction into state memory for next round verification
                     with state_lock:
                         engine_state["last_prediction_made"] = next_prediction
                     
-                    # Target Number Generator Allocations
                     if next_prediction == "BIG":
                         available_nums = [5, 6, 7, 8, 9]
                         num1 = base_math if base_math in available_nums else 7
@@ -153,13 +138,13 @@ def precision_prediction_loop():
                         f"🎯 Period: {period}\n"
                         f"🎲 Result: {next_prediction}\n"
                         f"🔢 2 Safe Numbers: {safe_nums_str}\n\n"
-                        f"⚠️ Risk Alert: Unstable trend mitigation active! Follow levels securely."
+                        f"⚠️ Risk Alert: Unstable trend mitigation active!"
                     )
                     
                     try:
                         bot.send_message(MY_MAIN_CHANNEL, prediction_msg)
                     except Exception as e:
-                        print(f"Channel output sync error: {e}")
+                        print(f"Broadcast error on channel: {e}")
                     
                     with state_lock:
                         chats_to_send = list(engine_state["external_chats"].items())
@@ -181,10 +166,10 @@ def precision_prediction_loop():
             time.sleep(1)
             
         except Exception as e:
-            print(f"Operational execution warning: {e}")
+            print(f"Loop operational variance: {e}")
             time.sleep(2)
 
-# 🛑 ADMIN PANEL CALLBACK INTERACTION BLOCK
+# 🛑 Admin Panel Callback Direct Interface
 @bot.callback_query_handler(func=lambda call: True)
 def handle_control_callbacks(call):
     if call.from_user.id != ADMIN_ID:
@@ -195,17 +180,17 @@ def handle_control_callbacks(call):
         with state_lock:
             engine_state["GLOBAL_MODE"] = "AUTOMATIC"
             engine_state["consecutive_misses"] = 0
-        bot.answer_callback_query(call.id, "Automatic Mode Configured.")
+        bot.answer_callback_query(call.id, "Automatic mode configured.")
     elif call.data == "set_manual":
         with state_lock:
             engine_state["GLOBAL_MODE"] = "MANUAL"
             engine_state["consecutive_misses"] = 0
-        bot.answer_callback_query(call.id, "Manual Override Configured.")
+        bot.answer_callback_query(call.id, "Manual override configured.")
     elif call.data == "status_info":
         with state_lock:
             current_mode = engine_state["GLOBAL_MODE"]
             misses = engine_state["consecutive_misses"]
-        bot.answer_callback_query(call.id, f"State: {current_mode} | Volatility Tier: {misses}")
+        bot.answer_callback_query(call.id, f"Mode: {current_mode} | Tier: {misses}")
         return
         
     try:
@@ -218,9 +203,9 @@ def send_admin_control_panel(message):
     if message.from_user.id != ADMIN_ID:
         return
     try:
-        bot.send_message(message.chat.id, "⚙️ UNSTABLE TREND HYBRID PANEL\n\nManage baseline logic execution rules:", reply_markup=get_admin_panel_keyboard())
+        bot.send_message(message.chat.id, "⚙️ CONTROL PANEL\n\nConfigure active baseline logic parameters:", reply_markup=get_admin_panel_keyboard())
     except Exception as e:
-        print(f"Panel interface execution error: {e}")
+        print(f"Admin control interface delivery error: {e}")
 
 @bot.message_handler(commands=['update'])
 def handle_manual_update(message):
@@ -229,7 +214,7 @@ def handle_manual_update(message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "Format sequence: /update <number>")
+            bot.reply_to(message, "Usage format: /update <number>")
             return
             
         input_number = int(args[1])
@@ -242,26 +227,20 @@ def handle_manual_update(message):
         with state_lock:
             engine_state["manual_result_store"][target_period] = input_number
             
-        bot.reply_to(message, f"Registered: Period {target_period} marked as {input_number}.")
+        bot.reply_to(message, f"Verified: Period {target_period} registered as {input_number}.")
     except Exception as e:
-        print(f"Manual input pipeline data failure: {e}")
-
-@bot.message_handler(commands=['start_prediction'])
-def handle_external_start(message):
-    chat_id = message.chat.id
-    with state_lock:
-        engine_state["external_chats"][chat_id] = {"active": True}
-    bot.reply_to(message, "Anti-Streak Processing Node Attached.")
+        print(f"Sequence memory update failure: {e}")
 
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
-    bot.reply_to(message, "Engine Active. Access system functions from the interface Menu panel.")
+    if message.from_user.id != ADMIN_ID:
+        return
+    bot.reply_to(message, "Welcome Owner! Secure baseline engine is operational. Tap the bottom left Menu button or type /panel.")
 
 if __name__ == "__main__":
-    # Persistent Menu Commands Button Config (Bottom Left Corner)
     try:
         bot.set_my_commands([
-            BotCommand("panel", "🎛️ Control Panel (Auto/Manual)"),
+            BotCommand("panel", "🎛️ Open Control Panel (Auto/Manual)"),
             BotCommand("update", "✍️ Submit Live Number Result"),
             BotCommand("start", "🔄 Refresh Bot Context Operations")
         ])
@@ -271,4 +250,3 @@ if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
     Thread(target=precision_prediction_loop, daemon=True).start()
     bot.infinity_polling(skip_pending=True)
-                            
