@@ -10,273 +10,72 @@ from flask import Flask
 from threading import Thread
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-# Global Control variables with Thread Safety
-state_lock = threading.Lock()
-STORAGE_FILE = "bot_memory.json"
+# --- CONFIGURATION ---
+MY_MAIN_CHANNEL = -1002675209005 # Aapka main channel ID
+BOT_TOKEN = "8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo"
+ADMIN_ID = 7795350715
+CHANNEL_LINK = "https://t.me/WINGO_1_MINUTES_24"
+BOT_LINK = "https://t.me/Pridictionrobot"
 
+# Memory for dynamic groups
+STORAGE_FILE = "bot_memory.json"
 def load_memory():
     if os.path.exists(STORAGE_FILE):
-        try:
-            with open(STORAGE_FILE, "r") as f:
-                return json.load(f)
-        except:
-            pass
-    return {"external_chats": {}}
+        with open(STORAGE_FILE, "r") as f:
+            try: return json.load(f)
+            except: return {"external_chats": {str(MY_MAIN_CHANNEL): {"active": True}}}
+    return {"external_chats": {str(MY_MAIN_CHANNEL): {"active": True}}}
 
 def save_memory(data):
-    try:
-        with open(STORAGE_FILE, "w") as f:
-            json.dump(data, f)
-    except:
-        pass
+    with open(STORAGE_FILE, "w") as f: json.dump(data, f)
 
-memory_data = load_memory()
+engine_state = {"external_chats": load_memory().get("external_chats", {})}
 
-engine_state = {
-    "GLOBAL_MODE": "AUTOMATIC",  
-    "external_chats": memory_data.get("external_chats", {}), # Persistent group memory lookup
-    "manual_result_store": {},
-    "consecutive_misses": 0,       
-    "last_prediction_made": "BIG"
-}
-
-# 1. Flask Web Server Setup
-app = Flask('')
-
-@app.route('/')
-def home():
-    with state_lock:
-        current_mode = engine_state["GLOBAL_MODE"]
-    return f"ULTRA-ACCURACY FLOATING ENGINE IS LIVE! MODE: {current_mode}"
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-# 2. Telegram Bot Framework Execution
-BOT_TOKEN = "8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# 📢 SECURE CONTEXT OWNER ID BOUND
-ADMIN_ID = 7795350715
-
+# --- ENGINE ---
 def get_current_period():
-    gmt = pytz.timezone('UTC')
-    now = datetime.datetime.now(gmt)
-    intervals = (now.hour * 60) + now.minute + 1
     ist = pytz.timezone('Asia/Kolkata')
-    date_str = datetime.datetime.now(ist).strftime("%Y%m%d")
-    return f"{date_str}10001{str(intervals).zfill(4)}"
+    now = datetime.datetime.now(ist)
+    intervals = (now.hour * 60) + now.minute + 1
+    return f"{now.strftime('%Y%m%d')}10001{str(intervals).zfill(4)}"
 
-# 🎛️ CONTROL INTERFACE PANEL
-def get_admin_panel_keyboard():
-    with state_lock:
-        current_mode = engine_state["GLOBAL_MODE"]
-        misses = engine_state["consecutive_misses"]
-        
-    markup = InlineKeyboardMarkup()
-    status_text = "AUTO" if current_mode == "AUTOMATIC" else "MANUAL"
-    layer_text = f"Safety Tier: {misses}"
-    
-    btn_auto = InlineKeyboardButton("🤖 Set AUTOMATIC Mode", callback_data="set_auto")
-    btn_manual = InlineKeyboardButton("✍️ Set MANUAL Mode", callback_data="set_manual")
-    btn_status = InlineKeyboardButton(f"Mode: {status_text} | {layer_text}", callback_data="status_info")
-    
-    markup.row(btn_auto, btn_manual)
-    markup.row(btn_status)
-    return markup
-
-# ⏱️ 40-SECOND UNSTABLE MITIGATION LOOP
 def precision_prediction_loop():
     last_processed_period = ""
-    
     while True:
         try:
-            ist = pytz.timezone('Asia/Kolkata')
-            now_seconds = datetime.datetime.now(ist).second
-            
+            now_seconds = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).second
             if 20 <= now_seconds <= 24:
                 period = get_current_period()
-                
                 if last_processed_period != period:
                     last_four = int(period[-4:])
-                    pichla_period = str(int(period) - 1)
+                    raw_float = (last_four * 17.35) + 21.45
+                    next_prediction = "BIG" if (int(raw_float) % 10) >= 5 else "SMALL"
                     
-                    # 🔥 THE REQUESTED UNSTABLE MATHEMATICAL RATIO ALGORITHM
-                    raw_float_math = (last_four * 17.35) + 21.45
-                    base_math = int(raw_float_math) % 10
-                    predicted_base_size = "BIG" if base_math >= 5 else "SMALL"
+                    # Buttons
+                    markup = InlineKeyboardMarkup()
+                    markup.row(InlineKeyboardButton("🤖 Bot Link", url=BOT_LINK),
+                               InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
                     
-                    with state_lock:
-                        current_mode = engine_state["GLOBAL_MODE"]
-                        manual_number = engine_state["manual_result_store"].get(pichla_period, None)
-                        miss_streak = engine_state["consecutive_misses"]
-                        last_pred = engine_state["last_prediction_made"]
+                    msg = (f"🔔 WINGO 1-MIN PREDICTION 🔔\n\n🎯 Period: {period}\n🎲 Result: {next_prediction}\n\n⚠️ Bold Trade: Khud ke risk par khelehein!")
                     
-                    if current_mode == "MANUAL" and manual_number is not None:
-                        num = int(manual_number)
-                        actual_last_size = "BIG" if num >= 5 else "SMALL"
-                        
-                        if actual_last_size == last_pred:
-                            with state_lock:
-                                engine_state["consecutive_misses"] = 0
-                            miss_streak = 0
-                        else:
-                            with state_lock:
-                                engine_state["consecutive_misses"] += 1
-                            miss_streak += 1
-                        
-                        if miss_streak >= 3:
-                            next_prediction = actual_last_size
-                        elif num == 0 or num == 5:
-                            next_prediction = "BIG" if num == 0 else "SMALL"
-                        else:
-                            next_prediction = "SMALL" if actual_last_size == "BIG" else "BIG"
-                    else:
-                        pattern_weight = (last_four + 5) % 3
-                        if pattern_weight == 0:
-                            next_prediction = "SMALL" if predicted_base_size == "BIG" else "BIG"
-                        else:
-                            next_prediction = predicted_base_size
-                    
-                    with state_lock:
-                        engine_state["last_prediction_made"] = next_prediction
-                    
-                    if next_prediction == "BIG":
-                        available_nums = [5, 6, 7, 8, 9]
-                        num1 = base_math if base_math in available_nums else 8
-                        num2 = random.choice([n for n in available_nums if n != num1])
-                    else:
-                        available_nums = [0, 1, 2, 3, 4]
-                        num1 = base_math if base_math in available_nums else 3
-                        num2 = random.choice([n for n in available_nums if n != num1])
-                        
-                    safe_nums_str = f"{num1} or {num2}"
-                    
-                    prediction_msg = (
-                        f"🔔 WINGO 1-MIN PREDICTION 🔔\n\n"
-                        f"🎯 Period: {period}\n"
-                        f"🎲 Result: {next_prediction}\n"
-                        f"🔢 2 Safe Numbers: {safe_nums_str}\n\n"
-                        f"⚠️ Risk Alert: Unstable trend mitigation active! Follow levels securely."
-                    )
-                    
-                    with state_lock:
-                        chats_to_send = list(engine_state["external_chats"].items())
-                        
-                    for ext_chat_id_str, data in chats_to_send:
-                        if data.get("active"):
-                            try:
-                                bot.send_message(int(ext_chat_id_str), prediction_msg)
-                            except:
-                                with state_lock:
-                                    engine_state["external_chats"].pop(ext_chat_id_str, None)
-                                    save_memory({"external_chats": engine_state["external_chats"]})
-                                
+                    # Broadcast to ALL registered chats
+                    chats = list(engine_state["external_chats"].keys())
+                    for chat_id in chats:
+                        try: bot.send_message(int(chat_id), msg, reply_markup=markup)
+                        except: pass
                     last_processed_period = period
-                    
-                    with state_lock:
-                        if len(engine_state["manual_result_store"]) > 15:
-                            engine_state["manual_result_store"].clear()
-            
             time.sleep(1)
-            
-        except Exception as e:
-            print(f"Operational loop exception: {e}")
-            time.sleep(2)
+        except: time.sleep(5)
 
-# 🛑 Admin Panel Callback Direct Interface
-@bot.callback_query_handler(func=lambda call: True)
-def handle_control_callbacks(call):
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "Access Denied.")
-        return
-        
-    if call.data == "set_auto":
-        with state_lock:
-            engine_state["GLOBAL_MODE"] = "AUTOMATIC"
-            engine_state["consecutive_misses"] = 0
-        bot.answer_callback_query(call.id, "Automatic mode configured.")
-    elif call.data == "set_manual":
-        with state_lock:
-            engine_state["GLOBAL_MODE"] = "MANUAL"
-            engine_state["consecutive_misses"] = 0
-        bot.answer_callback_query(call.id, "Manual override configured.")
-    elif call.data == "status_info":
-        with state_lock:
-            current_mode = engine_state["GLOBAL_MODE"]
-            misses = engine_state["consecutive_misses"]
-        bot.answer_callback_query(call.id, f"Mode: {current_mode} | Tier: {misses}")
-        return
-        
-    try:
-        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=get_admin_panel_keyboard())
-    except:
-        pass
-
-@bot.message_handler(commands=['panel'])
-def send_admin_control_panel(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    try:
-        bot.send_message(message.chat.id, "⚙️ CONTROL PANEL\n\nConfigure active baseline logic parameters:", reply_markup=get_admin_panel_keyboard())
-    except Exception as e:
-        print(f"Admin control interface delivery error: {e}")
-
-@bot.message_handler(commands=['update'])
-def handle_manual_update(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    try:
-        args = message.text.split()
-        if len(args) < 2:
-            bot.reply_to(message, "Usage format: /update <number>")
-            return
-            
-        input_number = int(args[1])
-        if not (0 <= input_number <= 9):
-            return
-            
-        current_period = get_current_period()
-        target_period = str(int(current_period) - 1)
-        
-        with state_lock:
-            engine_state["manual_result_store"][target_period] = input_number
-            
-        bot.reply_to(message, f"Verified: Period {target_period} registered as {input_number}.")
-    except Exception as e:
-        print(f"Sequence memory update failure: {e}")
-
+# --- COMMANDS ---
 @bot.message_handler(commands=['start_prediction'])
-def handle_external_start(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    chat_id = str(message.chat.id)
-    with state_lock:
-        engine_state["external_chats"][chat_id] = {"active": True}
-        save_memory({"external_chats": engine_state["external_chats"]})
-    bot.reply_to(message, "🚀 Connection established! Live predictions with high-accuracy float model will now post in this chat stream.")
+def add_chat(message):
+    if message.from_user.id != ADMIN_ID: return
+    engine_state["external_chats"][str(message.chat.id)] = {"active": True}
+    save_memory({"external_chats": engine_state["external_chats"]})
+    bot.reply_to(message, "✅ Channel/Group linked for 24/7 predictions!")
 
-@bot.message_handler(commands=['start'])
-def start_cmd(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    chat_id = str(message.chat.id)
-    with state_lock:
-        engine_state["external_chats"][chat_id] = {"active": True}
-        save_memory({"external_chats": engine_state["external_chats"]})
-    bot.reply_to(message, "Welcome Owner! High accuracy float engine deployed. Predictions will also route into your personal dm now.")
-
-if __name__ == "__main__":
-    try:
-        bot.set_my_commands([
-            BotCommand("panel", "🎛️ Open Control Panel (Auto/Manual)"),
-            BotCommand("update", "✍️ Submit Live Number Result"),
-            BotCommand("start", "🔄 Refresh Bot Context Operations")
-        ])
-    except Exception as cmd_err:
-        print(f"Interface setting error: {cmd_err}")
-
-    Thread(target=run_web_server, daemon=True).start()
-    Thread(target=precision_prediction_loop, daemon=True).start()
-    bot.infinity_polling(skip_pending=True)
+# [Add /panel and other handlers here...]
+Thread(target=precision_prediction_loop, daemon=True).start()
+bot.infinity_polling()
