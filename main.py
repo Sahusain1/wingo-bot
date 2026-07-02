@@ -5,15 +5,36 @@ import telebot
 import time
 import random
 import threading
+import json
 from flask import Flask
 from threading import Thread
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
 # Global Control variables with Thread Safety
 state_lock = threading.Lock()
+STORAGE_FILE = "bot_memory.json"
+
+def load_memory():
+    if os.path.exists(STORAGE_FILE):
+        try:
+            with open(STORAGE_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    return {"external_chats": {}}
+
+def save_memory(data):
+    try:
+        with open(STORAGE_FILE, "w") as f:
+            json.dump(data, f)
+    except:
+        pass
+
+memory_data = load_memory()
+
 engine_state = {
     "GLOBAL_MODE": "AUTOMATIC",  
-    "external_chats": {},
+    "external_chats": memory_data.get("external_chats", {}), # Persistent group memory lookup
     "manual_result_store": {},
     "consecutive_misses": 0,       
     "last_prediction_made": "BIG"
@@ -26,20 +47,18 @@ app = Flask('')
 def home():
     with state_lock:
         current_mode = engine_state["GLOBAL_MODE"]
-    return f"ANTI-STREAK ENGINE IS LIVE! MODE: {current_mode}"
+    return f"ULTRA-ACCURACY FLOATING ENGINE IS LIVE! MODE: {current_mode}"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# 2. Telegram Bot Setup
+# 2. Telegram Bot Framework Execution
 BOT_TOKEN = "8891931437:AAGW6oQJeyfh4GzbBAnZG8BhyEs-Mzty5Eo"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# 📢 STRICT SYSTEM CONFIGURATION (LOCKING CHANNELS & OWNER ID)       
+# 📢 SECURE CONTEXT OWNER ID BOUND
 ADMIN_ID = 7795350715
-BOT_LINK = "https://t.me/Pridictionrobot"   
-CHANNEL_LINK = "https://t.me/WINGO_1_MINUTES_24" 
 
 def get_current_period():
     gmt = pytz.timezone('UTC')
@@ -67,7 +86,7 @@ def get_admin_panel_keyboard():
     markup.row(btn_status)
     return markup
 
-# ⏱️ 40-SECOND PRECISION LOOP
+# ⏱️ 40-SECOND UNSTABLE MITIGATION LOOP
 def precision_prediction_loop():
     last_processed_period = ""
     
@@ -83,7 +102,9 @@ def precision_prediction_loop():
                     last_four = int(period[-4:])
                     pichla_period = str(int(period) - 1)
                     
-                    base_math = ((last_four * 9) + 4) % 10
+                    # 🔥 THE REQUESTED UNSTABLE MATHEMATICAL RATIO ALGORITHM
+                    raw_float_math = (last_four * 17.35) + 21.45
+                    base_math = int(raw_float_math) % 10
                     predicted_base_size = "BIG" if base_math >= 5 else "SMALL"
                     
                     with state_lock:
@@ -112,9 +133,8 @@ def precision_prediction_loop():
                         else:
                             next_prediction = "SMALL" if actual_last_size == "BIG" else "BIG"
                     else:
-                        group_block = (last_four // 3) % 2
-                        time_weight = (last_four + now_seconds) % 4
-                        if group_block == 1 and time_weight > 1:
+                        pattern_weight = (last_four + 5) % 3
+                        if pattern_weight == 0:
                             next_prediction = "SMALL" if predicted_base_size == "BIG" else "BIG"
                         else:
                             next_prediction = predicted_base_size
@@ -124,7 +144,7 @@ def precision_prediction_loop():
                     
                     if next_prediction == "BIG":
                         available_nums = [5, 6, 7, 8, 9]
-                        num1 = base_math if base_math in available_nums else 7
+                        num1 = base_math if base_math in available_nums else 8
                         num2 = random.choice([n for n in available_nums if n != num1])
                     else:
                         available_nums = [0, 1, 2, 3, 4]
@@ -138,24 +158,20 @@ def precision_prediction_loop():
                         f"🎯 Period: {period}\n"
                         f"🎲 Result: {next_prediction}\n"
                         f"🔢 2 Safe Numbers: {safe_nums_str}\n\n"
-                        f"⚠️ Risk Alert: Unstable trend mitigation active!"
+                        f"⚠️ Risk Alert: Unstable trend mitigation active! Follow levels securely."
                     )
-                    
-                    try:
-                        bot.send_message(MY_MAIN_CHANNEL, prediction_msg)
-                    except Exception as e:
-                        print(f"Broadcast error on channel: {e}")
                     
                     with state_lock:
                         chats_to_send = list(engine_state["external_chats"].items())
                         
-                    for ext_chat_id, data in chats_to_send:
+                    for ext_chat_id_str, data in chats_to_send:
                         if data.get("active"):
                             try:
-                                bot.send_message(ext_chat_id, prediction_msg)
+                                bot.send_message(int(ext_chat_id_str), prediction_msg)
                             except:
                                 with state_lock:
-                                    engine_state["external_chats"].pop(ext_chat_id, None)
+                                    engine_state["external_chats"].pop(ext_chat_id_str, None)
+                                    save_memory({"external_chats": engine_state["external_chats"]})
                                 
                     last_processed_period = period
                     
@@ -166,7 +182,7 @@ def precision_prediction_loop():
             time.sleep(1)
             
         except Exception as e:
-            print(f"Loop operational variance: {e}")
+            print(f"Operational loop exception: {e}")
             time.sleep(2)
 
 # 🛑 Admin Panel Callback Direct Interface
@@ -231,11 +247,25 @@ def handle_manual_update(message):
     except Exception as e:
         print(f"Sequence memory update failure: {e}")
 
+@bot.message_handler(commands=['start_prediction'])
+def handle_external_start(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    chat_id = str(message.chat.id)
+    with state_lock:
+        engine_state["external_chats"][chat_id] = {"active": True}
+        save_memory({"external_chats": engine_state["external_chats"]})
+    bot.reply_to(message, "🚀 Connection established! Live predictions with high-accuracy float model will now post in this chat stream.")
+
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     if message.from_user.id != ADMIN_ID:
         return
-    bot.reply_to(message, "Welcome Owner! Secure baseline engine is operational. Tap the bottom left Menu button or type /panel.")
+    chat_id = str(message.chat.id)
+    with state_lock:
+        engine_state["external_chats"][chat_id] = {"active": True}
+        save_memory({"external_chats": engine_state["external_chats"]})
+    bot.reply_to(message, "Welcome Owner! High accuracy float engine deployed. Predictions will also route into your personal dm now.")
 
 if __name__ == "__main__":
     try:
